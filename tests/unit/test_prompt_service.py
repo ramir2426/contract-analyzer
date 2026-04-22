@@ -1,6 +1,7 @@
 import pytest
-from app.services.prompt_service import parse_llm_json
+
 from app.exceptions import ParseError
+from app.services.prompt_service import parse_llm_json
 
 
 def test_parses_clean_json():

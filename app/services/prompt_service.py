@@ -1,7 +1,8 @@
 import json
 import re
-import structlog
 from typing import Any
+
+import structlog
 
 from app.exceptions import ParseError
 
@@ -25,7 +26,8 @@ You are a legal contract analysis assistant specializing in protecting individua
 You analyze contracts under European and German law where relevant.
 
 CRITICAL DISTINCTION — classify every flagged clause with one of these legal statuses:
-- "void": The clause is already unenforceable by law (e.g., BGB §307, specific BGH rulings). The user can sign and safely ignore this clause.
+- "void": The clause is already unenforceable by law (e.g., BGB §307, specific BGH rulings).
+  The user can sign and safely ignore this clause.
 - "voidable": Enforceable unless the user actively challenges it.
 - "unfavorable_but_valid": Legally binding and disadvantageous. Must be negotiated before signing.
 - "standard": Normal, expected clause. No special concern.
@@ -58,6 +60,7 @@ You MUST respond with valid JSON only.
 
 # ─── Prompt builders ───────────────────────────────────────────────────────────
 
+
 def build_metadata_extraction_prompt(contract_text: str, contract_type: str = "auto") -> list[dict]:
     schema = {
         "contract_type": "string (rental/employment/freelance/gym/insurance/service/auto)",
@@ -66,7 +69,7 @@ def build_metadata_extraction_prompt(contract_text: str, contract_type: str = "a
         "parties": {
             "first_party": "string or null",
             "second_party": "string or null",
-            "additional_parties": "array of strings"
+            "additional_parties": "array of strings",
         },
         "key_terms": {
             "start_date": "string or null",
@@ -78,8 +81,8 @@ def build_metadata_extraction_prompt(contract_text: str, contract_type: str = "a
             "auto_renewal_date": "string or null",
             "jurisdiction": "string or null",
             "governing_law": "string or null",
-            "additional_terms": "object with key-value pairs for other important terms"
-        }
+            "additional_terms": "object with key-value pairs for other important terms",
+        },
     }
 
     user_message = f"""Extract structured metadata from this contract.
@@ -109,7 +112,10 @@ def build_section_analysis_prompt(
             {
                 "severity": "red | yellow | green",
                 "legal_status": "void | voidable | unfavorable_but_valid | standard",
-                "category": "termination | financial | liability | privacy | intellectual_property | dispute_resolution | renewal | repairs | non_compete | working_conditions | other",
+                "category": (
+                    "termination | financial | liability | privacy | intellectual_property"
+                    " | dispute_resolution | renewal | repairs | non_compete | working_conditions | other"
+                ),
                 "title": "short title",
                 "explanation": "plain language explanation",
                 "what_this_means": "practical consequence for the user",
@@ -117,7 +123,7 @@ def build_section_analysis_prompt(
                 "raw_text": "exact text from contract or null",
                 "legal_source": "e.g. BGB §307, BGH VIII ZR 215/12 or null",
                 "action": "none_required | negotiate | consult_lawyer | walk_away | accept",
-                "negotiation_suggestion": "exact replacement wording in contract language or null"
+                "negotiation_suggestion": "exact replacement wording in contract language or null",
             }
         ]
     }
@@ -161,13 +167,7 @@ def build_synthesis_prompt(
         "contradictions": ["description of any contradictions found between sections"],
         "missing_required_clauses": ["list of legally required clauses that are absent"],
         "priority_actions": ["top 3-5 specific actions the user should take, ordered by importance"],
-        "positive_clauses": [
-            {
-                "title": "title",
-                "explanation": "why this is good",
-                "category": "category string"
-            }
-        ]
+        "positive_clauses": [{"title": "title", "explanation": "why this is good", "category": "category string"}],
     }
 
     user_message = f"""Synthesize the following section-by-section analysis into a final report.
@@ -189,6 +189,7 @@ Respond with JSON matching this schema:
 
 
 # ─── Response parser ───────────────────────────────────────────────────────────
+
 
 def parse_llm_json(raw: str, context: str = "") -> dict[str, Any]:
     """
@@ -227,7 +228,4 @@ def parse_llm_json(raw: str, context: str = "") -> dict[str, Any]:
             pass
 
     log.error("llm.parse_failed", context=context, raw_length=len(raw), raw_preview=raw[:200])
-    raise ParseError(
-        f"LLM returned unparseable output for '{context}'. "
-        f"Raw content (first 200 chars): {raw[:200]}"
-    )
+    raise ParseError(f"LLM returned unparseable output for '{context}'. " f"Raw content (first 200 chars): {raw[:200]}")

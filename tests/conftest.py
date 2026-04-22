@@ -1,6 +1,7 @@
-import pytest
 import httpx
+import pytest
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 
@@ -11,13 +12,17 @@ def client():
 
 @pytest.fixture
 def async_client():
-    return httpx.AsyncClient(app=app, base_url="http://test")
+    transport = httpx.ASGITransport(app=app)
+    return httpx.AsyncClient(transport=transport, base_url="http://test")
 
 
 @pytest.fixture
 def sample_pdf_bytes():
     """A valid one-page PDF built with pypdf — already a project dependency."""
-    import pypdf, io
+    import io
+
+    import pypdf
+
     writer = pypdf.PdfWriter()
     writer.add_blank_page(width=612, height=792)
     buf = io.BytesIO()

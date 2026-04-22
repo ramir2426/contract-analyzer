@@ -1,13 +1,13 @@
-import io
 import hashlib
-import structlog
+import io
 from dataclasses import dataclass, field
 
 import pdfplumber
 import pypdf
+import structlog
 
-from app.exceptions import InvalidPDFError, ScannedPDFError
 from app.config import settings
+from app.exceptions import InvalidPDFError, ScannedPDFError
 
 log = structlog.get_logger()
 
@@ -18,6 +18,7 @@ SCANNED_PDF_TEXT_THRESHOLD = 100
 @dataclass
 class DocumentSection:
     """A logical section of the contract."""
+
     title: str
     content: str
     page_numbers: list[int] = field(default_factory=list)
@@ -27,18 +28,18 @@ class DocumentSection:
 @dataclass
 class PDFContent:
     """Everything extracted from a PDF, used by downstream services."""
+
     raw_bytes: bytes
     extracted_text: str
     sections: list[DocumentSection]
     page_count: int
     is_scanned: bool
-    extraction_method: str                  # "pdfplumber", "pypdf", "ocr"
-    document_hash: str                      # SHA256 — used for caching
+    extraction_method: str  # "pdfplumber", "pypdf", "ocr"
+    document_hash: str  # SHA256 — used for caching
     detected_language_hint: str | None = None
 
 
 class PDFService:
-
     def process(self, pdf_bytes: bytes, filename: str = "contract.pdf") -> PDFContent:
         """
         Main entry point. Validates, detects type, extracts text and structure.
@@ -85,13 +86,9 @@ class PDFService:
             raise InvalidPDFError(f"File '{filename}' is not a valid PDF (magic bytes check failed).")
 
         if len(pdf_bytes) > settings.max_pdf_size_bytes:
-            raise InvalidPDFError(
-                f"File exceeds maximum size of {settings.max_pdf_size_mb}MB."
-            )
+            raise InvalidPDFError(f"File exceeds maximum size of {settings.max_pdf_size_mb}MB.")
 
-    def _extract_with_pdfplumber(
-        self, pdf_bytes: bytes
-    ) -> tuple[str, list[DocumentSection], int]:
+    def _extract_with_pdfplumber(self, pdf_bytes: bytes) -> tuple[str, list[DocumentSection], int]:
         try:
             sections: list[DocumentSection] = []
             full_text_parts: list[str] = []
@@ -99,7 +96,7 @@ class PDFService:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
                 page_count = len(pdf.pages)
 
-                for page_num, page in enumerate(pdf.pages, start=1):
+                for page in pdf.pages:
                     page_text = page.extract_text() or ""
 
                     # Extract tables and convert to readable text
@@ -119,9 +116,7 @@ class PDFService:
             # Fall back to pypdf
             return self._extract_with_pypdf(pdf_bytes)
 
-    def _extract_with_pypdf(
-        self, pdf_bytes: bytes
-    ) -> tuple[str, list[DocumentSection], int]:
+    def _extract_with_pypdf(self, pdf_bytes: bytes) -> tuple[str, list[DocumentSection], int]:
         reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
         page_count = len(reader.pages)
         pages_text = [page.extract_text() or "" for page in reader.pages]
@@ -129,13 +124,11 @@ class PDFService:
         sections = self._detect_sections(full_text)
         return full_text, sections, page_count
 
-    def _extract_with_ocr(
-        self, pdf_bytes: bytes
-    ) -> tuple[str, list[DocumentSection], int]:
+    def _extract_with_ocr(self, pdf_bytes: bytes) -> tuple[str, list[DocumentSection], int]:
         """OCR for scanned PDFs. Requires tesseract + pdf2image installed."""
         try:
-            from pdf2image import convert_from_bytes
             import pytesseract
+            from pdf2image import convert_from_bytes
 
             images = convert_from_bytes(pdf_bytes, dpi=300)
             page_count = len(images)
@@ -150,17 +143,16 @@ class PDFService:
             sections = self._detect_sections(full_text)
             return full_text, sections, page_count
 
-        except ImportError:
+        except ImportError as err:
             raise ScannedPDFError(
                 "This PDF appears to be a scanned document. "
                 "OCR processing requires pytesseract and pdf2image to be installed."
-            )
+            ) from err
         except Exception as e:
             # Catches PDFInfoNotInstalledError (poppler not in PATH) and similar
             if "poppler" in str(e).lower() or "pdfinfo" in str(e).lower() or "tesseract" in str(e).lower():
                 raise ScannedPDFError(
-                    "This PDF appears to be a scanned document. "
-                    "OCR requires poppler and tesseract to be installed."
+                    "This PDF appears to be a scanned document. " "OCR requires poppler and tesseract to be installed."
                 ) from e
             raise
 
@@ -170,6 +162,7 @@ class PDFService:
         Looks for patterns like: §1, § 1, Section 1, Abschnitt 1, 1., 1.1
         """
         import re
+
         sections = []
         current_title = "Preamble"
         current_lines: list[str] = []
@@ -182,10 +175,12 @@ class PDFService:
         for line in text.split("\n"):
             if section_pattern.match(line.strip()):
                 if current_lines:
-                    sections.append(DocumentSection(
-                        title=current_title,
-                        content="\n".join(current_lines).strip(),
-                    ))
+                    sections.append(
+                        DocumentSection(
+                            title=current_title,
+                            content="\n".join(current_lines).strip(),
+                        )
+                    )
                 current_title = line.strip()
                 current_lines = []
             else:
@@ -193,14 +188,14 @@ class PDFService:
 
         # Add the last section
         if current_lines:
-            sections.append(DocumentSection(
-                title=current_title,
-                content="\n".join(current_lines).strip(),
-            ))
+            sections.append(
+                DocumentSection(
+                    title=current_title,
+                    content="\n".join(current_lines).strip(),
+                )
+            )
 
-        return sections if sections else [
-            DocumentSection(title="Full Contract", content=text)
-        ]
+        return sections if sections else [DocumentSection(title="Full Contract", content=text)]
 
     def _table_to_text(self, table: list[list]) -> str:
         """Convert a pdfplumber table (list of rows) to readable text."""

@@ -1,4 +1,5 @@
 from enum import StrEnum
+
 from pydantic import BaseModel, Field
 
 
@@ -18,6 +19,7 @@ class OutputLanguage(StrEnum):
 
 class AnalyzeFormData(BaseModel):
     """Parsed from form fields accompanying the file upload."""
+
     provider: LLMProvider = LLMProvider.OLLAMA
     language: OutputLanguage = OutputLanguage.AUTO
     contract_type: str = "auto"

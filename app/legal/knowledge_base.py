@@ -1,5 +1,5 @@
-import structlog
 import chromadb
+import structlog
 from chromadb.utils import embedding_functions
 
 from app.config import settings
@@ -49,7 +49,7 @@ class LegalKnowledgeBase:
             return ""
 
         context_parts = []
-        for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
+        for doc, meta in zip(results["documents"][0], results["metadatas"][0], strict=False):
             source = meta.get("source", "Unknown")
             context_parts.append(f"[{source}]\n{doc}")
 

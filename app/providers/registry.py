@@ -3,12 +3,12 @@ from dataclasses import dataclass, field
 
 @dataclass
 class ProviderCapabilities:
-    litellm_prefix: str                     # How LiteLLM identifies this provider
-    supports_native_pdf: bool               # Can accept PDF bytes directly?
+    litellm_prefix: str  # How LiteLLM identifies this provider
+    supports_native_pdf: bool  # Can accept PDF bytes directly?
     requires_api_key: bool
     default_model: str
     supported_models: list[str] = field(default_factory=list)
-    base_url: str | None = None             # For Ollama and self-hosted
+    base_url: str | None = None  # For Ollama and self-hosted
 
 
 PROVIDER_CAPABILITIES: dict[str, ProviderCapabilities] = {

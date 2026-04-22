@@ -1,10 +1,11 @@
-from enum import StrEnum
-from datetime import datetime
-from pydantic import BaseModel, Field
 import uuid
+from datetime import datetime
+from enum import StrEnum
 
+from pydantic import BaseModel, Field
 
 # ─── Enums ────────────────────────────────────────────────────────────────────
+
 
 class RiskLevel(StrEnum):
     LOW = "low"
@@ -19,18 +20,18 @@ class FlagSeverity(StrEnum):
 
 
 class LegalStatus(StrEnum):
-    VOID = "void"                           # Unenforceable by law — user can ignore
-    VOIDABLE = "voidable"                   # Enforceable unless challenged
+    VOID = "void"  # Unenforceable by law — user can ignore
+    VOIDABLE = "voidable"  # Enforceable unless challenged
     UNFAVORABLE_BUT_VALID = "unfavorable_but_valid"  # Must negotiate
-    STANDARD = "standard"                   # Normal, expected clause
+    STANDARD = "standard"  # Normal, expected clause
 
 
 class RecommendedAction(StrEnum):
-    NONE_REQUIRED = "none_required"         # For void clauses
+    NONE_REQUIRED = "none_required"  # For void clauses
     NEGOTIATE = "negotiate"
     CONSULT_LAWYER = "consult_lawyer"
     WALK_AWAY = "walk_away"
-    ACCEPT = "accept"                       # For green flags
+    ACCEPT = "accept"  # For green flags
 
 
 class FlagCategory(StrEnum):
@@ -58,17 +59,18 @@ class JobStatus(StrEnum):
 
 # ─── Contract flag ─────────────────────────────────────────────────────────────
 
+
 class ContractFlag(BaseModel):
     id: str = Field(default_factory=lambda: f"flag_{uuid.uuid4().hex[:8]}")
     severity: FlagSeverity
     legal_status: LegalStatus
     category: FlagCategory
     title: str
-    explanation: str                        # Plain-language explanation
-    what_this_means: str                    # Practical consequence for the user
-    clause_reference: str | None = None     # e.g., "§ 4.2" or "Section 12"
-    raw_text: str | None = None             # Exact text from contract
-    legal_source: str | None = None         # e.g., "BGB §307, BGH VIII ZR 215/12"
+    explanation: str  # Plain-language explanation
+    what_this_means: str  # Practical consequence for the user
+    clause_reference: str | None = None  # e.g., "§ 4.2" or "Section 12"
+    raw_text: str | None = None  # Exact text from contract
+    legal_source: str | None = None  # e.g., "BGB §307, BGH VIII ZR 215/12"
     action: RecommendedAction
     negotiation_suggestion: str | None = None  # Proposed replacement wording
 
@@ -82,9 +84,10 @@ class PositiveClause(BaseModel):
 
 # ─── Key metadata extracted from contract ─────────────────────────────────────
 
+
 class ContractParties(BaseModel):
-    first_party: str | None = None          # e.g., "Tenant: Max Mustermann"
-    second_party: str | None = None         # e.g., "Landlord: ABC GmbH"
+    first_party: str | None = None  # e.g., "Tenant: Max Mustermann"
+    second_party: str | None = None  # e.g., "Landlord: ABC GmbH"
     additional_parties: list[str] = Field(default_factory=list)
 
 
@@ -103,14 +106,15 @@ class KeyTerms(BaseModel):
 
 # ─── Analysis result ───────────────────────────────────────────────────────────
 
+
 class AnalysisMetadata(BaseModel):
     provider: str
     model: str
-    prompt_version: str                     # Track which prompt produced this result
+    prompt_version: str  # Track which prompt produced this result
     processing_time_ms: int
     pdf_pages: int | None = None
     total_tokens_used: int | None = None
-    extraction_method: str | None = None    # "pdfplumber", "pypdf", "ocr", "native"
+    extraction_method: str | None = None  # "pdfplumber", "pypdf", "ocr", "native"
     pipeline_passes: int = 4
 
 
@@ -122,7 +126,7 @@ class AnalysisResult(BaseModel):
     parties: ContractParties
     key_terms: KeyTerms
     summary: str
-    summary_plain: str                      # ELI5 version — 2-3 sentences max
+    summary_plain: str  # ELI5 version — 2-3 sentences max
     overall_risk: RiskLevel
     flags: list[ContractFlag]
     positive_clauses: list[PositiveClause] = Field(default_factory=list)
@@ -134,10 +138,11 @@ class AnalysisResult(BaseModel):
 
 # ─── Job state ─────────────────────────────────────────────────────────────────
 
+
 class JobStatusResponse(BaseModel):
     job_id: str
     status: JobStatus
-    progress_message: str | None = None     # e.g., "Analyzing section 3 of 8..."
+    progress_message: str | None = None  # e.g., "Analyzing section 3 of 8..."
     created_at: datetime
     completed_at: datetime | None = None
     error: str | None = None
@@ -145,8 +150,9 @@ class JobStatusResponse(BaseModel):
 
 # ─── Conversation ──────────────────────────────────────────────────────────────
 
+
 class ConversationMessage(BaseModel):
-    role: str                               # "user" or "assistant"
+    role: str  # "user" or "assistant"
     content: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -159,6 +165,7 @@ class ConversationResponse(BaseModel):
 
 # ─── Cost estimate ─────────────────────────────────────────────────────────────
 
+
 class CostEstimate(BaseModel):
     estimated_tokens: int
     estimated_cost_usd: float | None = None  # None for Ollama (free)
@@ -168,6 +175,7 @@ class CostEstimate(BaseModel):
 
 
 # ─── Error response ────────────────────────────────────────────────────────────
+
 
 class ErrorDetail(BaseModel):
     code: str

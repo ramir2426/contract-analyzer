@@ -1,6 +1,7 @@
 import pytest
-from app.services.pdf_service import PDFService
+
 from app.exceptions import InvalidPDFError
+from app.services.pdf_service import PDFService
 
 
 def test_rejects_non_pdf_bytes():
@@ -11,6 +12,7 @@ def test_rejects_non_pdf_bytes():
 
 def test_rejects_oversized_pdf(monkeypatch):
     from app.config import settings
+
     # Patch the source field (max_pdf_size_mb), not the derived property
     monkeypatch.setattr(settings, "max_pdf_size_mb", 0)
     service = PDFService()
@@ -20,6 +22,7 @@ def test_rejects_oversized_pdf(monkeypatch):
 
 def test_extracts_text_from_valid_pdf(sample_pdf_bytes):
     from app.exceptions import ScannedPDFError
+
     service = PDFService()
     # Blank PDFs have no extractable text → triggers OCR path.
     # On CI without tesseract/poppler, ScannedPDFError is the correct outcome.

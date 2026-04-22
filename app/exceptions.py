@@ -1,5 +1,6 @@
 class ContractAnalyzerError(Exception):
     """Base exception for all application errors."""
+
     status_code: int = 500
     error_code: str = "INTERNAL_ERROR"
 
@@ -16,6 +17,7 @@ class PDFTooLargeError(ContractAnalyzerError):
 
 class ScannedPDFError(ContractAnalyzerError):
     """Raised when OCR is needed but tesseract is not installed."""
+
     status_code = 422
     error_code = "SCANNED_PDF_REQUIRES_OCR"
 
@@ -32,6 +34,7 @@ class MissingAPIKeyError(ContractAnalyzerError):
 
 class LLMAuthError(ContractAnalyzerError):
     """User's BYOK key was rejected by the provider."""
+
     status_code = 401
     error_code = "LLM_AUTH_FAILED"
 
@@ -48,6 +51,7 @@ class LLMUnavailableError(ContractAnalyzerError):
 
 class ParseError(ContractAnalyzerError):
     """LLM returned output that could not be parsed into the expected schema."""
+
     status_code = 500
     error_code = "PARSE_ERROR"
 

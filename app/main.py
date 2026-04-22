@@ -1,15 +1,15 @@
-import structlog
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import structlog
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.api.v1 import contracts, health
 from app.config import settings
 from app.exceptions import ContractAnalyzerError
-from app.models.responses import ErrorResponse, ErrorDetail
-from app.api.v1 import contracts, health
+from app.models.responses import ErrorDetail, ErrorResponse
 
 # Configure structured JSON logging
 structlog.configure(
@@ -41,6 +41,7 @@ app = FastAPI(
 
 
 # ─── Exception handlers ────────────────────────────────────────────────────────
+
 
 @app.exception_handler(ContractAnalyzerError)
 async def contract_error_handler(request: Request, exc: ContractAnalyzerError):

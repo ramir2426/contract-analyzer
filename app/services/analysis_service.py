@@ -1,38 +1,36 @@
-import time
 import asyncio
-import structlog
-from dataclasses import asdict
+import time
 
-from app.services.pdf_service import PDFService, PDFContent
+import structlog
+
+from app.legal.knowledge_base import knowledge_base
+from app.models.responses import (
+    AnalysisMetadata,
+    AnalysisResult,
+    ContractFlag,
+    ContractParties,
+    FlagCategory,
+    FlagSeverity,
+    KeyTerms,
+    LegalStatus,
+    PositiveClause,
+    RecommendedAction,
+    RiskLevel,
+)
 from app.services.llm_service import LLMService
+from app.services.pdf_service import PDFContent, PDFService
 from app.services.prompt_service import (
+    PROMPT_VERSION,
     build_metadata_extraction_prompt,
     build_section_analysis_prompt,
     build_synthesis_prompt,
     parse_llm_json,
-    PROMPT_VERSION,
 )
-from app.models.responses import (
-    AnalysisResult,
-    AnalysisMetadata,
-    ContractFlag,
-    PositiveClause,
-    ContractParties,
-    KeyTerms,
-    RiskLevel,
-    FlagSeverity,
-    LegalStatus,
-    RecommendedAction,
-    FlagCategory,
-)
-from app.providers.registry import get_provider
-from app.legal.knowledge_base import knowledge_base
 
 log = structlog.get_logger()
 
 
 class AnalysisService:
-
     def __init__(self):
         self.pdf_service = PDFService()
         self.llm_service = LLMService()
@@ -56,7 +54,6 @@ class AnalysisService:
         Pass 4: Synthesis (final LLM call)
         """
         start_time = time.time()
-        capabilities = get_provider(provider)
         total_tokens = 0
 
         # ── Pass 1: Document Intelligence ────────────────────────────────────
@@ -79,9 +76,7 @@ class AnalysisService:
             await progress_callback("Identifying contract type and key terms...")
 
         log.info("pipeline.pass2.start")
-        metadata_messages = build_metadata_extraction_prompt(
-            pdf_content.extracted_text, contract_type
-        )
+        metadata_messages = build_metadata_extraction_prompt(pdf_content.extracted_text, contract_type)
         metadata_response = await self.llm_service.complete(
             messages=metadata_messages,
             provider=provider,
@@ -101,19 +96,21 @@ class AnalysisService:
 
         # Analyze sections in parallel (up to 5 at a time to avoid rate limits)
         semaphore = asyncio.Semaphore(5)
-        section_results = await asyncio.gather(*[
-            self._analyze_section(
-                section=section,
-                metadata=metadata,
-                provider=provider,
-                api_key=api_key,
-                model_override=model_override,
-                output_language=output_language,
-                semaphore=semaphore,
-            )
-            for section in pdf_content.sections
-            if len(section.content.strip()) > 50  # Skip empty sections
-        ])
+        section_results = await asyncio.gather(
+            *[
+                self._analyze_section(
+                    section=section,
+                    metadata=metadata,
+                    provider=provider,
+                    api_key=api_key,
+                    model_override=model_override,
+                    output_language=output_language,
+                    semaphore=semaphore,
+                )
+                for section in pdf_content.sections
+                if len(section.content.strip()) > 50  # Skip empty sections
+            ]
+        )
 
         all_flags_raw = []
         for result in section_results:
@@ -233,10 +230,7 @@ class AnalysisService:
                 second_party=_sanitize(parties_data.get("second_party")),
                 additional_parties=parties_data.get("additional_parties") or [],
             ),
-            key_terms=KeyTerms(**{
-                k: _sanitize(v) for k, v in key_terms_data.items()
-                if k in KeyTerms.model_fields
-            }),
+            key_terms=KeyTerms(**{k: _sanitize(v) for k, v in key_terms_data.items() if k in KeyTerms.model_fields}),
             summary=synthesis.get("summary", ""),
             summary_plain=synthesis.get("summary_plain", ""),
             overall_risk=self._safe_enum(RiskLevel, synthesis.get("overall_risk", "medium"), RiskLevel.MEDIUM),

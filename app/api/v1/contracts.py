@@ -1,24 +1,24 @@
+import asyncio
 import json
 import uuid
-import asyncio
 from datetime import datetime
+
 import structlog
+from fastapi import APIRouter, File, Form, Header, UploadFile
 
-from fastapi import APIRouter, File, UploadFile, Header, Form
-
-from app.services.analysis_service import AnalysisService
-from app.services.llm_service import LLMService
+from app.exceptions import ContractAnalyzerError, JobNotFoundError, SessionNotFoundError
+from app.models.requests import ConversationRequest
 from app.models.responses import (
     AnalysisResult,
-    JobStatusResponse,
-    JobStatus,
-    ConversationResponse,
     ConversationMessage,
+    ConversationResponse,
     CostEstimate,
+    JobStatus,
+    JobStatusResponse,
 )
-from app.models.requests import ConversationRequest
-from app.exceptions import JobNotFoundError, SessionNotFoundError, ContractAnalyzerError
-from app.providers.registry import get_provider, PROVIDER_CAPABILITIES
+from app.providers.registry import PROVIDER_CAPABILITIES, get_provider
+from app.services.analysis_service import AnalysisService
+from app.services.llm_service import LLMService
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -32,18 +32,20 @@ def _get_provider_from_header(x_llm_provider: str | None) -> str:
     provider = x_llm_provider or "ollama"
     if provider not in PROVIDER_CAPABILITIES:
         from app.exceptions import InvalidProviderError
+
         raise InvalidProviderError(f"Unknown provider '{provider}'. Supported: {list(PROVIDER_CAPABILITIES)}")
     return provider
 
 
 # ── POST /contracts ────────────────────────────────────────────────────────────
 
+
 @router.post("/contracts", response_model=dict, status_code=202)
 async def upload_contract(
     file: UploadFile = File(...),
     language: str = Form(default="auto"),
     contract_type: str = Form(default="auto"),
-    focus_areas: str = Form(default="[]"),        # JSON array as string
+    focus_areas: str = Form(default="[]"),  # JSON array as string
     model_override: str | None = Form(default=None),
     x_llm_provider: str | None = Header(default=None),
     x_api_key: str | None = Header(default=None),
@@ -60,6 +62,7 @@ async def upload_contract(
 
     # Validate before spawning — gives the client a synchronous 422 for bad files
     from app.services.pdf_service import PDFService
+
     PDFService()._validate(pdf_bytes, file.filename or "contract.pdf")
 
     job_id = f"job_{uuid.uuid4().hex[:12]}"
@@ -144,6 +147,7 @@ async def _run_analysis(
 
 # ── GET /contracts/{id}/status ─────────────────────────────────────────────────
 
+
 @router.get("/contracts/{job_id}/status", response_model=JobStatusResponse)
 async def get_job_status(job_id: str):
     if job_id not in _job_store:
@@ -162,6 +166,7 @@ async def get_job_status(job_id: str):
 
 # ── GET /contracts/{id}/result ─────────────────────────────────────────────────
 
+
 @router.get("/contracts/{job_id}/result", response_model=AnalysisResult)
 async def get_job_result(job_id: str):
     if job_id not in _job_store:
@@ -170,14 +175,13 @@ async def get_job_result(job_id: str):
     job = _job_store[job_id]
 
     if job["status"] != JobStatus.COMPLETE:
-        raise ContractAnalyzerError(
-            f"Job is not complete yet. Current status: {job['status']}"
-        )
+        raise ContractAnalyzerError(f"Job is not complete yet. Current status: {job['status']}")
 
     return AnalysisResult(**job["result"])
 
 
 # ── POST /contracts/estimate ───────────────────────────────────────────────────
+
 
 @router.post("/contracts/estimate", response_model=CostEstimate)
 async def estimate_cost(
@@ -195,14 +199,14 @@ async def estimate_cost(
 
     # Cost per 1M tokens (approximate, as of 2026)
     cost_per_million = {
-        "claude": 3.0,    # claude-3-5-sonnet input
-        "openai": 5.0,    # gpt-4o input
-        "gemini": 1.25,   # gemini-1.5-pro input
-        "ollama": 0.0,    # free
+        "claude": 3.0,  # claude-3-5-sonnet input
+        "openai": 5.0,  # gpt-4o input
+        "gemini": 1.25,  # gemini-1.5-pro input
+        "ollama": 0.0,  # free
     }
 
     cost_per_token = cost_per_million.get(provider, 0) / 1_000_000
-    estimated_cost = estimated_tokens * cost_per_token * 4   # x4 for multi-pass
+    estimated_cost = estimated_tokens * cost_per_token * 4  # x4 for multi-pass
 
     return CostEstimate(
         estimated_tokens=estimated_tokens,
@@ -218,6 +222,7 @@ async def estimate_cost(
 
 
 # ── POST /contracts/{id}/messages — Conversation (Phase 8) ────────────────────
+
 
 @router.post("/contracts/{job_id}/messages", response_model=ConversationResponse)
 async def send_message(
@@ -236,20 +241,21 @@ async def send_message(
     - "Is the deposit amount legal under German law?"
     """
     if job_id not in _session_store:
-        raise SessionNotFoundError(
-            f"No analysis session found for job '{job_id}'. Run analysis first."
-        )
+        raise SessionNotFoundError(f"No analysis session found for job '{job_id}'. Run analysis first.")
 
     session = _session_store[job_id]
     provider = _get_provider_from_header(x_llm_provider)
 
     # Inject full contract context into the system message
-    analysis_summary = json.dumps({
-        "contract_type": session["analysis"].get("contract_type"),
-        "key_terms": session["analysis"].get("key_terms"),
-        "flags": session["analysis"].get("flags", [])[:10],   # Top 10 flags
-        "summary": session["analysis"].get("summary"),
-    }, indent=2)
+    analysis_summary = json.dumps(
+        {
+            "contract_type": session["analysis"].get("contract_type"),
+            "key_terms": session["analysis"].get("key_terms"),
+            "flags": session["analysis"].get("flags", [])[:10],  # Top 10 flags
+            "summary": session["analysis"].get("summary"),
+        },
+        indent=2,
+    )
 
     system_message = f"""You are a contract advisor helping a user understand their contract.
 You have already analyzed this contract. Here is the analysis:
@@ -277,7 +283,7 @@ If a question requires a lawyer, say so clearly."""
 
     history.append({"role": "user", "content": request.message})
     history.append({"role": "assistant", "content": response.content})
-    session["history"] = history[-20:]   # Keep last 20 messages to avoid context overflow
+    session["history"] = history[-20:]  # Keep last 20 messages to avoid context overflow
 
     return ConversationResponse(
         session_id=job_id,

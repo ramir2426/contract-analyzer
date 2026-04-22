@@ -1,10 +1,11 @@
 import base64
-import structlog
-import litellm
 from dataclasses import dataclass
 
-from app.providers.registry import get_provider
+import litellm
+import structlog
+
 from app.exceptions import LLMAuthError, LLMRateLimitError, LLMUnavailableError, MissingAPIKeyError
+from app.providers.registry import get_provider
 
 log = structlog.get_logger()
 
@@ -21,7 +22,6 @@ class LLMResponse:
 
 
 class LLMService:
-
     async def complete(
         self,
         messages: list[dict],
@@ -39,8 +39,7 @@ class LLMService:
 
         if capabilities.requires_api_key and not api_key:
             raise MissingAPIKeyError(
-                f"Provider '{provider}' requires an API key. "
-                f"Pass it via the X-API-Key header."
+                f"Provider '{provider}' requires an API key. " f"Pass it via the X-API-Key header."
             )
 
         model = model_override or capabilities.default_model
@@ -49,12 +48,12 @@ class LLMService:
         kwargs: dict = {
             "model": litellm_model,
             "messages": messages,
-            "temperature": 0.1,             # Low for consistent analysis
+            "temperature": 0.1,  # Low for consistent analysis
             "response_format": {"type": "json_object"},
         }
 
         if api_key:
-            kwargs["api_key"] = api_key     # BYOK: injected per-request, never stored
+            kwargs["api_key"] = api_key  # BYOK: injected per-request, never stored
 
         if capabilities.base_url:
             kwargs["api_base"] = capabilities.base_url
