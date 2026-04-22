@@ -323,7 +323,7 @@
         statusData = await res.json();
       } catch (e) { continue; }
 
-      if (statusData.status === 'completed') {
+      if (statusData.status === 'complete') {
         clearInterval(interval);
         setProgress(95, 'Loading results...');
         const res = await fetch(`/api/v1/contracts/${jobId}/result`);
