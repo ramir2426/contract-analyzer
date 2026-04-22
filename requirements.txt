@@ -5,7 +5,7 @@ python-multipart==0.0.9
 sse-starlette==2.1.0
 
 # LLM
-litellm==1.45.0
+litellm>=1.52.0
 
 # PDF processing
 pdfplumber==0.11.0

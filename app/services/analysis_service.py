@@ -218,17 +218,23 @@ class AnalysisService:
         parties_data = metadata.get("parties", {})
         key_terms_data = metadata.get("key_terms", {})
 
+        def _sanitize(v):
+            """Convert string 'null'/'none' to None — smaller LLMs do this."""
+            if isinstance(v, str) and v.lower() in ("null", "none", "n/a", ""):
+                return None
+            return v
+
         return AnalysisResult(
             contract_type=metadata.get("contract_type", "unknown"),
             detected_language=metadata.get("detected_language", "unknown"),
-            jurisdiction=metadata.get("jurisdiction"),
+            jurisdiction=_sanitize(metadata.get("jurisdiction")),
             parties=ContractParties(
-                first_party=parties_data.get("first_party"),
-                second_party=parties_data.get("second_party"),
-                additional_parties=parties_data.get("additional_parties", []),
+                first_party=_sanitize(parties_data.get("first_party")),
+                second_party=_sanitize(parties_data.get("second_party")),
+                additional_parties=parties_data.get("additional_parties") or [],
             ),
             key_terms=KeyTerms(**{
-                k: v for k, v in key_terms_data.items()
+                k: _sanitize(v) for k, v in key_terms_data.items()
                 if k in KeyTerms.model_fields
             }),
             summary=synthesis.get("summary", ""),
