@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contract Analyzer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 600; color: #fff; }
+    header span { font-size: 0.8rem; background: #2d3148; color: #94a3b8; padding: 3px 10px; border-radius: 99px; }
+
+    main { max-width: 860px; margin: 40px auto; padding: 0 24px; }
+
+    /* Upload card */
+    .upload-card {
+      background: #1a1d27;
+      border: 2px dashed #2d3148;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      transition: border-color 0.2s;
+      cursor: pointer;
+    }
+    .upload-card:hover, .upload-card.drag-over { border-color: #6366f1; }
+    .upload-card svg { width: 48px; height: 48px; color: #6366f1; margin-bottom: 16px; }
+    .upload-card h2 { font-size: 1.1rem; margin-bottom: 8px; }
+    .upload-card p { color: #64748b; font-size: 0.9rem; margin-bottom: 24px; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 22px; border-radius: 8px; font-size: 0.9rem;
+      font-weight: 500; border: none; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-primary { background: #6366f1; color: #fff; }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-primary:disabled { background: #3d3f5e; color: #64748b; cursor: not-allowed; }
+
+    /* Options row */
+    .options { display: flex; gap: 16px; margin-top: 24px; flex-wrap: wrap; }
+    .options label { font-size: 0.82rem; color: #94a3b8; display: block; margin-bottom: 4px; }
+    .options select {
+      background: #0f1117; border: 1px solid #2d3148; color: #e2e8f0;
+      padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; min-width: 160px;
+    }
+    .api-key-wrap { flex: 1; min-width: 200px; }
+    .api-key-wrap input {
+      width: 100%; background: #0f1117; border: 1px solid #2d3148; color: #e2e8f0;
+      padding: 8px 12px; border-radius: 8px; font-size: 0.9rem;
+    }
+    .api-key-wrap input::placeholder { color: #475569; }
+
+    /* File name chip */
+    #file-name {
+      display: none; margin-top: 16px; background: #0f1117;
+      border: 1px solid #2d3148; padding: 8px 14px; border-radius: 8px;
+      font-size: 0.85rem; color: #94a3b8;
+    }
+
+    /* Progress */
+    #progress-section { display: none; margin-top: 32px; }
+    .progress-bar-bg { background: #2d3148; border-radius: 99px; height: 6px; margin: 12px 0; overflow: hidden; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #a78bfa); border-radius: 99px;
+      width: 0%; transition: width 0.4s ease; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0%,100%{opacity:1} 50%{opacity:0.6} }
+    #progress-msg { font-size: 0.88rem; color: #94a3b8; }
+
+    /* Results */
+    #results-section { display: none; margin-top: 32px; }
+
+    .risk-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 16px; border-radius: 99px; font-weight: 600; font-size: 0.95rem;
+    }
+    .risk-low    { background: #052e16; color: #4ade80; border: 1px solid #166534; }
+    .risk-medium { background: #1c1917; color: #fbbf24; border: 1px solid #92400e; }
+    .risk-high   { background: #1c0a0a; color: #f87171; border: 1px solid #991b1b; }
+
+    .summary-box {
+      background: #1a1d27; border: 1px solid #2d3148;
+      border-radius: 12px; padding: 20px; margin: 20px 0;
+    }
+    .summary-box h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #64748b; margin-bottom: 10px; }
+    .summary-box p { line-height: 1.6; color: #cbd5e1; }
+
+    .section-title {
+      font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #64748b; margin: 28px 0 12px;
+    }
+
+    .flag-card {
+      background: #1a1d27; border-radius: 12px; padding: 18px 20px;
+      margin-bottom: 12px; border-left: 4px solid #2d3148;
+    }
+    .flag-card.red    { border-left-color: #ef4444; }
+    .flag-card.yellow { border-left-color: #f59e0b; }
+    .flag-card.green  { border-left-color: #22c55e; }
+
+    .flag-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .flag-title { font-weight: 600; font-size: 0.95rem; }
+    .flag-badges { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+    .badge {
+      font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; font-weight: 500;
+      background: #2d3148; color: #94a3b8;
+    }
+    .badge.void    { background: #1c0a0a; color: #f87171; }
+    .badge.voidable { background: #1c1507; color: #fbbf24; }
+    .flag-explanation { margin-top: 8px; font-size: 0.88rem; color: #94a3b8; line-height: 1.5; }
+    .flag-means { margin-top: 6px; font-size: 0.85rem; color: #64748b; font-style: italic; }
+    .flag-suggestion {
+      margin-top: 10px; font-size: 0.83rem; background: #0f1117;
+      border: 1px solid #2d3148; border-radius: 8px; padding: 10px 12px; color: #a5b4fc;
+    }
+
+    .positive-card {
+      background: #051a0e; border: 1px solid #166534; border-radius: 12px;
+      padding: 16px 18px; margin-bottom: 10px;
+    }
+    .positive-card .p-title { font-weight: 600; font-size: 0.9rem; color: #4ade80; }
+    .positive-card .p-explanation { font-size: 0.85rem; color: #86efac; margin-top: 4px; }
+
+    .action-list { list-style: none; }
+    .action-list li {
+      padding: 10px 14px; background: #1a1d27; border-radius: 8px;
+      margin-bottom: 8px; font-size: 0.88rem; color: #cbd5e1;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .action-list li::before { content: "→"; color: #6366f1; flex-shrink: 0; }
+
+    .meta-row {
+      display: flex; flex-wrap: wrap; gap: 20px;
+      font-size: 0.8rem; color: #64748b; margin-top: 28px;
+      padding-top: 20px; border-top: 1px solid #2d3148;
+    }
+    .meta-row span b { color: #94a3b8; }
+
+    .error-box {
+      background: #1c0a0a; border: 1px solid #991b1b; border-radius: 12px;
+      padding: 20px; color: #fca5a5; font-size: 0.9rem; margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    <line x1="16" y1="13" x2="8" y2="13"/>
+    <line x1="16" y1="17" x2="8" y2="17"/>
+    <polyline points="10 9 9 9 8 9"/>
+  </svg>
+  <h1>Contract Analyzer</h1>
+  <span>AI-Powered</span>
+</header>
+
+<main>
+  <!-- Upload -->
+  <div class="upload-card" id="drop-zone">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <h2>Upload your contract PDF</h2>
+    <p>Drag & drop or click to browse — rental, employment, freelance, gym, insurance</p>
+    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+      Choose PDF
+    </button>
+    <input type="file" id="file-input" accept=".pdf" style="display:none" />
+    <div id="file-name"></div>
+  </div>
+
+  <!-- Options -->
+  <div class="options">
+    <div>
+      <label>Provider</label>
+      <select id="provider">
+        <option value="ollama">Ollama (free, local)</option>
+        <option value="claude">Claude (Anthropic)</option>
+        <option value="openai">OpenAI GPT-4o</option>
+        <option value="gemini">Google Gemini</option>
+      </select>
+    </div>
+    <div>
+      <label>Output Language</label>
+      <select id="language">
+        <option value="en">English</option>
+        <option value="de">German</option>
+      </select>
+    </div>
+    <div class="api-key-wrap">
+      <label>API Key <span style="color:#475569">(not needed for Ollama)</span></label>
+      <input type="password" id="api-key" placeholder="sk-ant-... / sk-... / AI..." />
+    </div>
+  </div>
+
+  <div style="margin-top:20px">
+    <button class="btn btn-primary" id="analyze-btn" onclick="startAnalysis()" disabled>
+      Analyze Contract
+    </button>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress-section">
+    <div class="progress-bar-bg"><div class="progress-bar" id="progress-bar"></div></div>
+    <div id="progress-msg">Starting analysis...</div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="error-box" style="display:none"></div>
+
+  <!-- Results -->
+  <div id="results-section"></div>
+</main>
+
+<script>
+  let selectedFile = null;
+
+  const fileInput = document.getElementById('file-input');
+  const dropZone  = document.getElementById('drop-zone');
+  const analyzeBtn = document.getElementById('analyze-btn');
+  const fileNameEl = document.getElementById('file-name');
+
+  fileInput.addEventListener('change', e => setFile(e.target.files[0]));
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type === 'application/pdf') setFile(f);
+  });
+
+  function setFile(f) {
+    selectedFile = f;
+    fileNameEl.style.display = 'block';
+    fileNameEl.textContent = `📄 ${f.name} (${(f.size/1024).toFixed(0)} KB)`;
+    analyzeBtn.disabled = false;
+  }
+
+  async function startAnalysis() {
+    if (!selectedFile) return;
+
+    const provider = document.getElementById('provider').value;
+    const language = document.getElementById('language').value;
+    const apiKey   = document.getElementById('api-key').value.trim();
+
+    document.getElementById('error-box').style.display = 'none';
+    document.getElementById('results-section').style.display = 'none';
+    document.getElementById('results-section').innerHTML = '';
+
+    // Show progress
+    document.getElementById('progress-section').style.display = 'block';
+    setProgress(10, 'Uploading PDF...');
+    analyzeBtn.disabled = true;
+
+    // Build form data
+    const form = new FormData();
+    form.append('file', selectedFile);
+    form.append('language', language);
+
+    const headers = { 'X-LLM-Provider': provider };
+    if (apiKey) headers['X-API-Key'] = apiKey;
+
+    let jobId;
+    try {
+      const res = await fetch('/api/v1/contracts', { method: 'POST', headers, body: form });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || 'Upload failed');
+      }
+      const data = await res.json();
+      jobId = data.job_id;
+    } catch (e) {
+      showError(e.message);
+      return;
+    }
+
+    setProgress(25, 'Extracting document structure...');
+    await pollResult(jobId);
+  }
+
+  async function pollResult(jobId) {
+    const progressMessages = [
+      [40, 'Identifying contract type and parties...'],
+      [55, 'Analyzing contract sections...'],
+      [70, 'Checking legal knowledge base...'],
+      [85, 'Synthesizing risk flags...'],
+    ];
+    let msgIdx = 0;
+
+    const interval = setInterval(() => {
+      if (msgIdx < progressMessages.length) {
+        const [pct, msg] = progressMessages[msgIdx++];
+        setProgress(pct, msg);
+      }
+    }, 8000);
+
+    const start = Date.now();
+    while (Date.now() - start < 300000) {
+      await sleep(3000);
+
+      let statusData;
+      try {
+        const res = await fetch(`/api/v1/contracts/${jobId}/status`);
+        statusData = await res.json();
+      } catch (e) { continue; }
+
+      if (statusData.status === 'completed') {
+        clearInterval(interval);
+        setProgress(95, 'Loading results...');
+        const res = await fetch(`/api/v1/contracts/${jobId}/result`);
+        const result = await res.json();
+        clearInterval(interval);
+        setProgress(100, 'Done!');
+        setTimeout(() => {
+          document.getElementById('progress-section').style.display = 'none';
+          renderResults(result);
+          analyzeBtn.disabled = false;
+        }, 500);
+        return;
+      }
+
+      if (statusData.status === 'failed') {
+        clearInterval(interval);
+        showError(statusData.error || 'Analysis failed');
+        return;
+      }
+    }
+
+    clearInterval(interval);
+    showError('Timed out waiting for analysis. The contract may be very large — try again.');
+  }
+
+  function renderResults(r) {
+    const sec = document.getElementById('results-section');
+    sec.style.display = 'block';
+
+    const riskClass = r.overall_risk === 'high' ? 'risk-high' : r.overall_risk === 'low' ? 'risk-low' : 'risk-medium';
+    const riskLabel = r.overall_risk?.toUpperCase() || 'UNKNOWN';
+
+    let html = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <h2 style="font-size:1.2rem">${escHtml(r.contract_type?.replace(/_/g,' ')?.replace(/\b\w/g,c=>c.toUpperCase()) || 'Contract')} Analysis</h2>
+        <span class="risk-badge ${riskClass}">● ${riskLabel} RISK</span>
+      </div>`;
+
+    // Parties & key terms
+    if (r.parties?.first_party || r.parties?.second_party) {
+      html += `<div class="summary-box" style="margin-top:16px">
+        <h3>Parties</h3>
+        <p><b>Party 1:</b> ${escHtml(r.parties.first_party || '—')}<br>
+           <b>Party 2:</b> ${escHtml(r.parties.second_party || '—')}</p>
+      </div>`;
+    }
+
+    // Plain summary
+    if (r.summary_plain) {
+      html += `<div class="summary-box"><h3>Plain-Language Summary</h3><p>${escHtml(r.summary_plain)}</p></div>`;
+    }
+
+    // Priority actions
+    if (r.priority_actions?.length) {
+      html += `<div class="section-title">Priority Actions</div><ul class="action-list">`;
+      r.priority_actions.forEach(a => { html += `<li>${escHtml(a)}</li>`; });
+      html += `</ul>`;
+    }
+
+    // Flags
+    if (r.flags?.length) {
+      html += `<div class="section-title">Risk Flags (${r.flags.length})</div>`;
+      r.flags.forEach(f => {
+        const color = f.severity === 'red' ? 'red' : f.severity === 'green' ? 'green' : 'yellow';
+        const statusBadge = f.legal_status === 'void' ? 'void' : f.legal_status === 'voidable' ? 'voidable' : '';
+        html += `<div class="flag-card ${color}">
+          <div class="flag-header">
+            <div class="flag-title">${escHtml(f.title)}</div>
+            <div class="flag-badges">
+              <span class="badge">${escHtml(f.category || '')}</span>
+              ${statusBadge ? `<span class="badge ${statusBadge}">${escHtml(f.legal_status)}</span>` : ''}
+              ${f.action ? `<span class="badge">${escHtml(f.action.replace(/_/g,' '))}</span>` : ''}
+            </div>
+          </div>
+          <div class="flag-explanation">${escHtml(f.explanation)}</div>
+          ${f.what_this_means ? `<div class="flag-means">${escHtml(f.what_this_means)}</div>` : ''}
+          ${f.legal_source ? `<div style="margin-top:6px;font-size:0.8rem;color:#475569">📖 ${escHtml(f.legal_source)}</div>` : ''}
+          ${f.negotiation_suggestion ? `<div class="flag-suggestion">💬 Suggestion: ${escHtml(f.negotiation_suggestion)}</div>` : ''}
+        </div>`;
+      });
+    }
+
+    // Positive clauses
+    if (r.positive_clauses?.length) {
+      html += `<div class="section-title">What's Working in Your Favour</div>`;
+      r.positive_clauses.forEach(p => {
+        html += `<div class="positive-card">
+          <div class="p-title">✓ ${escHtml(p.title)}</div>
+          <div class="p-explanation">${escHtml(p.explanation)}</div>
+        </div>`;
+      });
+    }
+
+    // Missing clauses
+    if (r.missing_required_clauses?.length) {
+      html += `<div class="section-title">Missing Required Clauses</div>
+        <ul class="action-list">`;
+      r.missing_required_clauses.forEach(m => { html += `<li>${escHtml(m)}</li>`; });
+      html += `</ul>`;
+    }
+
+    // Meta
+    html += `<div class="meta-row">
+      <span><b>Provider:</b> ${escHtml(r.metadata?.provider || '—')}</span>
+      <span><b>Model:</b> ${escHtml(r.metadata?.model || '—')}</span>
+      <span><b>Pages:</b> ${r.metadata?.pdf_pages ?? '—'}</span>
+      <span><b>Tokens:</b> ${r.metadata?.total_tokens_used?.toLocaleString() ?? '—'}</span>
+      <span><b>Time:</b> ${r.metadata?.processing_time_ms ? (r.metadata.processing_time_ms/1000).toFixed(1)+'s' : '—'}</span>
+    </div>`;
+
+    sec.innerHTML = html;
+  }
+
+  function setProgress(pct, msg) {
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-msg').textContent = msg;
+  }
+
+  function showError(msg) {
+    document.getElementById('progress-section').style.display = 'none';
+    const box = document.getElementById('error-box');
+    box.style.display = 'block';
+    box.textContent = '⚠ ' + msg;
+    analyzeBtn.disabled = false;
+  }
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>

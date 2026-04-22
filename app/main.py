@@ -1,8 +1,10 @@
 import structlog
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.exceptions import ContractAnalyzerError
@@ -70,3 +72,13 @@ async def generic_error_handler(request: Request, exc: Exception):
 
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(contracts.router, prefix="/api/v1", tags=["contracts"])
+
+# ─── Static UI ────────────────────────────────────────────────────────────────
+
+_static_dir = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+
+@app.get("/", include_in_schema=False)
+async def serve_ui():
+    return FileResponse(_static_dir / "index.html")
