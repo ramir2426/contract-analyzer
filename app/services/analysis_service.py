@@ -26,6 +26,7 @@ from app.models.responses import (
     FlagCategory,
 )
 from app.providers.registry import get_provider
+from app.legal.knowledge_base import knowledge_base
 
 log = structlog.get_logger()
 
@@ -167,11 +168,15 @@ class AnalysisService:
         semaphore: asyncio.Semaphore,
     ) -> dict:
         async with semaphore:
+            legal_context = knowledge_base.retrieve(
+                clause_text=section.content[:500],
+                contract_type=metadata.get("contract_type", "unknown"),
+            )
             messages = build_section_analysis_prompt(
                 section_title=section.title,
                 section_text=section.content,
                 contract_metadata=metadata,
-                legal_context=None,     # Phase 9 adds RAG here
+                legal_context=legal_context or None,
                 output_language=output_language,
             )
             try:

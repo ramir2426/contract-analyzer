@@ -58,6 +58,10 @@ async def upload_contract(
     provider = _get_provider_from_header(x_llm_provider)
     pdf_bytes = await file.read()
 
+    # Validate before spawning — gives the client a synchronous 422 for bad files
+    from app.services.pdf_service import PDFService
+    PDFService()._validate(pdf_bytes, file.filename or "contract.pdf")
+
     job_id = f"job_{uuid.uuid4().hex[:12]}"
     _job_store[job_id] = {
         "status": JobStatus.QUEUED,

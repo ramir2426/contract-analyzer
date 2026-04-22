@@ -155,6 +155,14 @@ class PDFService:
                 "This PDF appears to be a scanned document. "
                 "OCR processing requires pytesseract and pdf2image to be installed."
             )
+        except Exception as e:
+            # Catches PDFInfoNotInstalledError (poppler not in PATH) and similar
+            if "poppler" in str(e).lower() or "pdfinfo" in str(e).lower() or "tesseract" in str(e).lower():
+                raise ScannedPDFError(
+                    "This PDF appears to be a scanned document. "
+                    "OCR requires poppler and tesseract to be installed."
+                ) from e
+            raise
 
     def _detect_sections(self, text: str) -> list[DocumentSection]:
         """

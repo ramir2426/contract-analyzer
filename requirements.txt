@@ -23,7 +23,7 @@ celery==5.4.0
 redis==5.0.0
 
 # RAG / vector store
-chromadb==0.5.0
+chromadb>=0.5.23
 sentence-transformers==3.0.0
 
 # Logging
