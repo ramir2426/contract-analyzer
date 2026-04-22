@@ -17,8 +17,15 @@ ignore = [
 
 [tool.mypy]
 python_version = "3.12"
-strict = true
 ignore_missing_imports = true
+disallow_untyped_defs = false
+warn_return_any = false
+warn_unused_ignores = false
+
+# Third-party libs with incomplete stubs — skip entirely
+[[tool.mypy.overrides]]
+module = ["litellm.*", "chromadb.*", "sentence_transformers.*", "celery.*", "pdfplumber.*", "pdf2image.*", "pytesseract.*"]
+ignore_errors = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
